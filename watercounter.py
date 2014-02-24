@@ -1,21 +1,30 @@
+#!/usr/bin/env python
+
 import pifacedigitalio
 import MySQLdb
 from threading import Timer
 
 water = 0
 
-def createwaterrecord():
-    db = MySQLdb.connect("localhost","testuser","test123","TESTDB" )
-    cursor = db.cursor()
-    sql = """INSERT INTO EMPLOYEE(FIRST_NAME,
-             LAST_NAME, AGE, SEX, INCOME)
-             VALUES ('Mac', 'Mohan', 20, 'M', 2000)"""
-    try:
+def createwaterrecord(value):
+    global water
+
+    try :
+       db = MySQLdb.connect(host="rsp03",
+                         user="timelogger",
+			 passwd="timelogger",
+                         db = "timelogger" )
+ 
+       sql = """INSERT INTO logger (dID,
+             value, unit)
+             VALUES ('1', %(value)d, 'L') ON DUPLICATE KEY UPDATE value=value+%(value)d;""" % {"value": value}
+       cursor = db.cursor()
        cursor.execute(sql)
        db.commit()
+       db.close()
     except:
-      db.rollback()
-    db.close()
+      water += value
+      #db.rollback() 
 
 def waterAdd(event):
     global water
@@ -26,14 +35,19 @@ def PrintWater():
     oldwater = water
     water = 0
     print ("watercounter =  {0}.".format(oldwater))
-    t = Timer(30.0, PrintWater)
+    createwaterrecord(oldwater)
+    t = Timer(60.0, PrintWater)
     t.start()
 
 if __name__ == "__main__":
+    #pifacedigitalio.init()
+    #pifacedigitalio.digital_write_pullup(7,1)
+
     pifacedigital = pifacedigitalio.PiFaceDigital()
     listener = pifacedigitalio.InputEventListener(chip=pifacedigital)
+    listener.register(7, pifacedigitalio.IODIR_ON, waterAdd)
     listener.register(0, pifacedigitalio.IODIR_ON, waterAdd)
     listener.activate()
     print "Start counting"
-    t = Timer(30.0, PrintWater)
+    t = Timer(2.0, PrintWater)
     t.start()
